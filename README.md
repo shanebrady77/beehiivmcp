@@ -2,7 +2,7 @@
 
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for [Beehiiv](https://beehiiv.com). Connect your Beehiiv newsletter to Claude Desktop and manage subscribers, posts, segments, webhooks, automations, and more using natural language.
 
-Built by [Buzzposter](https://buzzposter.com).
+Built by [Shane Brady](https://shanerbrady.com).
 
 ---
 
