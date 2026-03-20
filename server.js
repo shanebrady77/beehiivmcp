@@ -262,7 +262,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "post_create",
-      description: "Create a new post. Set status to 'draft' to save or 'confirmed' to publish/schedule.",
+      description: "Create a new post as a DRAFT. Always creates in draft status — use the Beehiiv dashboard to review and send. Never publishes or sends automatically.",
       inputSchema: {
         type: "object",
         properties: {
@@ -270,8 +270,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           preview_text: { type: "string" },
           content_tags: { type: "array", items: { type: "string" } },
           authors: { type: "array", items: { type: "string" } },
-          status: { type: "string", enum: ["draft", "confirmed"] },
-          scheduled_at: { type: "string", description: "ISO 8601 datetime, e.g. 2024-12-01T10:00:00Z" },
           meta_default_title: { type: "string" },
           meta_default_description: { type: "string" },
         },
@@ -569,12 +567,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "post_create": {
-        const body = { subject: args.subject };
+        const body = { subject: args.subject, status: "draft" };
         if (args?.preview_text) body.preview_text = args.preview_text;
         if (args?.content_tags?.length) body.content_tags = args.content_tags;
         if (args?.authors?.length) body.authors = args.authors;
-        if (args?.status) body.status = args.status;
-        if (args?.scheduled_at) body.scheduled_at = args.scheduled_at;
         if (args?.meta_default_title) body.meta_default_title = args.meta_default_title;
         if (args?.meta_default_description) body.meta_default_description = args.meta_default_description;
         const data = await beehiiv("/posts", { method: "POST", body: JSON.stringify(body) });
