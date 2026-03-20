@@ -266,6 +266,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
+          title: { type: "string", description: "Internal post title (required by Beehiiv API)" },
           subject: { type: "string", description: "Email subject line" },
           subtitle: { type: "string", description: "Post subtitle" },
           preview_text: { type: "string" },
@@ -353,7 +354,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           post_id: { type: "string" },
           subject: { type: "string" },
           preview_text: { type: "string" },
-          status: { type: "string", enum: ["draft", "confirmed", "archived"] },
+          status: { type: "string", enum: ["draft", "archived"], description: "Only draft or archived — confirmed (publish) must be done from the Beehiiv dashboard" },
           scheduled_at: { type: "string", description: "ISO 8601 datetime" },
           meta_default_title: { type: "string" },
           meta_default_description: { type: "string" },
@@ -638,7 +639,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (args?.body_content && args?.blocks) {
           return { content: [{ type: "text", text: "Error: provide either body_content or blocks, not both." }], isError: true };
         }
-        const body = { subject: args.subject, status: "draft" };
+        const body = { title: args.title || args.subject, subject: args.subject, status: "draft" };
         if (args?.subtitle) body.subtitle = args.subtitle;
         if (args?.preview_text) body.preview_text = args.preview_text;
         if (args?.thumbnail_image_url) body.thumbnail_image_url = args.thumbnail_image_url;
