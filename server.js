@@ -262,16 +262,84 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "post_create",
-      description: "Create a new post as a DRAFT. Always creates in draft status — use the Beehiiv dashboard to review and send. Never publishes or sends automatically.",
+      description: "Create a new post as a DRAFT (Enterprise only for body content). Always creates in draft status — use the Beehiiv dashboard to review and send. Supports body_content (raw HTML) OR blocks (structured content). Use blocks for images, headings, paragraphs, buttons, lists, tables, columns, embeds, ads, polls, dividers, and paywalls.",
       inputSchema: {
         type: "object",
         properties: {
-          subject: { type: "string" },
+          subject: { type: "string", description: "Email subject line" },
+          subtitle: { type: "string", description: "Post subtitle" },
           preview_text: { type: "string" },
+          thumbnail_image_url: { type: "string", description: "URL of the post thumbnail image" },
           content_tags: { type: "array", items: { type: "string" } },
           authors: { type: "array", items: { type: "string" } },
           meta_default_title: { type: "string" },
           meta_default_description: { type: "string" },
+          scheduled_at: { type: "string", description: "ISO 8601 datetime to schedule, e.g. 2024-12-01T10:00:00Z" },
+          body_content: {
+            type: "string",
+            description: "Raw HTML content for the post body. Use this OR blocks, not both. Enterprise only.",
+          },
+          blocks: {
+            type: "array",
+            description: "Structured content blocks. Use this OR body_content, not both. Enterprise only. Supported types: paragraph, heading, image, list, table, button, columns, advertisement, content_break, paywall_break, html, rss, embed_link, poll.",
+            items: {
+              type: "object",
+              properties: {
+                type: {
+                  type: "string",
+                  enum: ["paragraph", "heading", "image", "list", "table", "button", "columns", "advertisement", "content_break", "paywall_break", "html", "rss", "embed_link", "poll"],
+                },
+                // paragraph
+                plaintext: { type: "string", description: "Plain text content (paragraph block)" },
+                formattedText: {
+                  type: "array",
+                  description: "Formatted text runs with styling (paragraph block)",
+                  items: {
+                    type: "object",
+                    properties: {
+                      text: { type: "string" },
+                      styling: { type: "array", items: { type: "string", enum: ["bold", "italic", "underline", "strikethrough"] } },
+                    },
+                  },
+                },
+                // heading
+                level: { type: "string", description: "Heading level: 1, 2, or 3" },
+                text: { type: "string", description: "Heading or button text" },
+                textAlignment: { type: "string", enum: ["left", "center", "right"] },
+                anchorHeader: { type: "boolean" },
+                anchorIncludeInToc: { type: "boolean" },
+                // image
+                imageUrl: { type: "string", description: "Image URL (image block)" },
+                alt_text: { type: "string" },
+                caption: { type: "string" },
+                captionAlignment: { type: "string", enum: ["left", "center", "right"] },
+                imageAlignment: { type: "string", enum: ["left", "center", "right"] },
+                title: { type: "string" },
+                url: { type: "string", description: "Link URL when image is clicked" },
+                width: { type: "number", description: "Image width as percentage (1-100)" },
+                // list
+                items: { type: "array", items: { type: "string" }, description: "List items" },
+                listType: { type: "string", enum: ["ordered", "unordered"] },
+                startNumber: { type: "number" },
+                // table
+                rows: { type: "array", description: "2D array of cell objects with text and alignment" },
+                headerRow: { type: "boolean" },
+                headerColumn: { type: "boolean" },
+                // button
+                href: { type: "string", description: "Button link URL" },
+                alignment: { type: "string", enum: ["left", "center", "right"] },
+                size: { type: "string", enum: ["small", "large"] },
+                target: { type: "string", enum: ["_blank", "_self"] },
+                // columns
+                columns: { type: "array", description: "Array of column objects, each with a blocks array" },
+                // advertisement
+                opportunity_id: { type: "string", description: "Ad opportunity ID" },
+                // html
+                html: { type: "string", description: "Raw HTML (html block)" },
+              },
+              required: ["type"],
+            },
+          },
         },
         required: ["subject"],
       },
@@ -567,12 +635,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "post_create": {
+        if (args?.body_content && args?.blocks) {
+          return { content: [{ type: "text", text: "Error: provide either body_content or blocks, not both." }], isError: true };
+        }
         const body = { subject: args.subject, status: "draft" };
+        if (args?.subtitle) body.subtitle = args.subtitle;
         if (args?.preview_text) body.preview_text = args.preview_text;
+        if (args?.thumbnail_image_url) body.thumbnail_image_url = args.thumbnail_image_url;
         if (args?.content_tags?.length) body.content_tags = args.content_tags;
         if (args?.authors?.length) body.authors = args.authors;
+        if (args?.scheduled_at) body.scheduled_at = args.scheduled_at;
         if (args?.meta_default_title) body.meta_default_title = args.meta_default_title;
         if (args?.meta_default_description) body.meta_default_description = args.meta_default_description;
+        if (args?.body_content) body.body_content = args.body_content;
+        if (args?.blocks?.length) body.blocks = args.blocks;
         const data = await beehiiv("/posts", { method: "POST", body: JSON.stringify(body) });
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
