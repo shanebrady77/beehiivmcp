@@ -117,6 +117,30 @@ Tools are grouped by prefix so Claude can quickly identify the right one.
 
 ---
 
+## Security & Privacy
+
+**Your API key never leaves your computer.**
+
+Here's exactly what's happening when you set this up:
+
+- The `server.js` file runs **locally on your machine** — it's not a website, not a cloud service, not a server somewhere on the internet. It's just a program running in the background on your computer, the same way Spotify or Dropbox runs in the background.
+
+- Your Beehiiv API key lives in the Claude Desktop config file **on your hard drive**. It's never uploaded anywhere, never sent to GitHub, and never shared with anyone. It's read-only by your local machine.
+
+- When you ask Claude something like "show me my subscribers", Claude talks to the local server running on your computer, which then makes a request to Beehiiv's API using your key, and returns the result. That's the whole chain — Claude → your computer → Beehiiv → back to you.
+
+- The API key itself is like a password that only has the permissions you've given it in Beehiiv. If you're worried, you can create a read-only API key in Beehiiv settings so it can never make changes — only look things up.
+
+**What this server can and can't do:**
+
+- It can only do what Beehiiv's API allows — it can't access anything outside your Beehiiv account
+- It creates posts as **drafts only** — it can never send a newsletter without you manually pressing send in the Beehiiv dashboard
+- It has no access to your email, your computer files, or anything else
+
+**The one thing to be careful about:** don't share your Claude Desktop config file with anyone, since it contains your API key in plain text. Treat it like you'd treat a file with a password in it.
+
+---
+
 ## License
 
 MIT
