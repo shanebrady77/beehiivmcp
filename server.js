@@ -76,7 +76,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       description: "Look up a subscriber by email address.",
       inputSchema: {
         type: "object",
-        properties: { email: { type: "string" } },
+        properties: {
+          email: { type: "string" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
+        },
         required: ["email"],
       },
     },
@@ -91,6 +94,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "array",
             items: { type: "string", enum: ["stats", "referrals", "custom_fields", "subscription_premium_tiers"] },
           },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
         },
         required: ["subscription_id"],
       },
@@ -113,6 +117,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "array",
             items: { type: "string", enum: ["stats", "referrals", "custom_fields", "subscription_premium_tiers"] },
           },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
         },
       },
     },
@@ -141,6 +146,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
               required: ["name", "value"],
             },
           },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
         },
         required: ["email"],
       },
@@ -162,6 +168,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
               required: ["name", "value"],
             },
           },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
         },
         required: ["subscription_id"],
       },
@@ -171,7 +178,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       description: "Permanently delete a subscriber. Use subscriber_update with unsubscribe=true to soft-remove instead.",
       inputSchema: {
         type: "object",
-        properties: { subscription_id: { type: "string" } },
+        properties: {
+          subscription_id: { type: "string" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
+        },
         required: ["subscription_id"],
       },
     },
@@ -183,6 +193,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           emails: { type: "array", items: { type: "string" } },
           tag: { type: "string" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
         },
         required: ["emails", "tag"],
       },
@@ -222,6 +233,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             },
           },
         },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
+        },
         required: ["subscriptions"],
       },
     },
@@ -253,6 +266,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             },
           },
         },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
+        },
         required: ["subscriptions"],
       },
     },
@@ -267,6 +282,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           status: { type: "string", enum: ["draft", "confirmed", "archived"] },
           limit: { type: "number" },
           page: { type: "number" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
         },
       },
     },
@@ -275,7 +291,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       description: "Get full details and stats for a specific post.",
       inputSchema: {
         type: "object",
-        properties: { post_id: { type: "string" } },
+        properties: {
+          post_id: { type: "string" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
+        },
         required: ["post_id"],
       },
     },
@@ -285,6 +304,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: {
         type: "object",
         properties: {
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx). Use publication_list to find IDs." },
           title: { type: "string", description: "Internal post title (required by Beehiiv API)" },
           subject: { type: "string", description: "Email subject line" },
           subtitle: { type: "string", description: "Post subtitle" },
@@ -377,6 +397,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           scheduled_at: { type: "string", description: "ISO 8601 datetime" },
           meta_default_title: { type: "string" },
           meta_default_description: { type: "string" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
         },
         required: ["post_id"],
       },
@@ -386,7 +407,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       description: "Permanently delete a post. Only works on drafts.",
       inputSchema: {
         type: "object",
-        properties: { post_id: { type: "string" } },
+        properties: {
+          post_id: { type: "string" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
+        },
         required: ["post_id"],
       },
     },
@@ -395,14 +419,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "segment_list",
       description: "List all subscriber segments for the publication.",
-      inputSchema: { type: "object", properties: {} },
+      inputSchema: { type: "object", properties: { pub_id: { type: "string", description: "Publication ID override (pub_xxx)" } } },
     },
     {
       name: "segment_get",
       description: "Get details and member count for a specific segment.",
       inputSchema: {
         type: "object",
-        properties: { segment_id: { type: "string" } },
+        properties: {
+          segment_id: { type: "string" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
+        },
         required: ["segment_id"],
       },
     },
@@ -415,6 +442,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         type: "object",
         properties: {
           status: { type: "string", enum: ["active", "inactive", "all"] },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
         },
       },
     },
@@ -423,7 +451,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       description: "Get full details of a specific automation including its trigger and steps.",
       inputSchema: {
         type: "object",
-        properties: { automation_id: { type: "string" } },
+        properties: {
+          automation_id: { type: "string" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
+        },
         required: ["automation_id"],
       },
     },
@@ -434,7 +465,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       description: "List all webhook endpoints configured for the publication.",
       inputSchema: {
         type: "object",
-        properties: { limit: { type: "number" } },
+        properties: {
+          limit: { type: "number" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
+        },
       },
     },
     {
@@ -442,7 +476,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       description: "Get details of a specific webhook by endpoint_id (ep_xxx).",
       inputSchema: {
         type: "object",
-        properties: { endpoint_id: { type: "string" } },
+        properties: {
+          endpoint_id: { type: "string" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
+        },
         required: ["endpoint_id"],
       },
     },
@@ -469,6 +506,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             },
           },
           description: { type: "string" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
         },
         required: ["url", "event_types"],
       },
@@ -482,6 +520,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           endpoint_id: { type: "string" },
           event_types: { type: "array", items: { type: "string" } },
           description: { type: "string" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
         },
         required: ["endpoint_id"],
       },
@@ -491,7 +530,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       description: "Delete a webhook endpoint by endpoint_id (ep_xxx).",
       inputSchema: {
         type: "object",
-        properties: { endpoint_id: { type: "string" } },
+        properties: {
+          endpoint_id: { type: "string" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
+        },
         required: ["endpoint_id"],
       },
     },
@@ -500,12 +542,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "settings_list_custom_fields",
       description: "List all custom field definitions. Check this before using custom fields in subscriber_add or subscriber_update.",
-      inputSchema: { type: "object", properties: {} },
+      inputSchema: { type: "object", properties: { pub_id: { type: "string", description: "Publication ID override (pub_xxx)" } } },
     },
     {
       name: "settings_list_tiers",
       description: "List all subscription tiers (free and premium) configured for the publication.",
-      inputSchema: { type: "object", properties: {} },
+      inputSchema: { type: "object", properties: { pub_id: { type: "string", description: "Publication ID override (pub_xxx)" } } },
     },
     {
       name: "settings_list_ad_opportunities",
@@ -515,6 +557,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           limit: { type: "number" },
           page: { type: "number" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
         },
       },
     },
