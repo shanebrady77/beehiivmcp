@@ -8,12 +8,10 @@ const API_KEY = process.env.BEEHIIV_API_KEY;
 const PUB_ID = process.env.BEEHIIV_PUB_ID;
 
 if (!API_KEY) throw new Error("BEEHIIV_API_KEY env var is required");
-if (!PUB_ID) throw new Error("BEEHIIV_PUB_ID env var is required");
 
-const BASE = `https://api.beehiiv.com/v2/publications/${PUB_ID}`;
+const API_ROOT = "https://api.beehiiv.com/v2";
 
-async function beehiiv(path, opts = {}) {
-  const url = path.startsWith("http") ? path : `${BASE}${path}`;
+async function beehiivFetch(url, opts = {}) {
   const res = await fetch(url, {
     ...opts,
     headers: { Authorization: `Bearer ${API_KEY}`, "Content-Type": "application/json", ...opts.headers },
@@ -22,6 +20,21 @@ async function beehiiv(path, opts = {}) {
   const data = await res.json();
   if (!res.ok) throw new Error(`Beehiiv API ${res.status}: ${JSON.stringify(data)}`);
   return data;
+}
+
+// For publication-scoped calls — uses pub_id arg or falls back to env var
+function beehiiv(path, opts = {}, pub_id = null) {
+  const pid = pub_id || PUB_ID;
+  if (!pid) throw new Error("No publication ID provided. Pass pub_id or set BEEHIIV_PUB_ID env var.");
+  const base = `${API_ROOT}/publications/${pid}`;
+  const url = path.startsWith("http") ? path : `${base}${path}`;
+  return beehiivFetch(url, opts);
+}
+
+// For account-level calls (not pub-scoped)
+function beehiivRoot(path, opts = {}) {
+  const url = `${API_ROOT}${path}`;
+  return beehiivFetch(url, opts);
 }
 
 const server = new Server(
@@ -34,9 +47,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
     // ── PUBLICATION ──────────────────────────────────────────────────────────
     {
+      name: "publication_list",
+      description: "List all Beehiiv publications accessible with this API key.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    {
       name: "publication_get_stats",
       description: "Get total subscribers, open rates, and click rates for the publication.",
-      inputSchema: { type: "object", properties: {} },
+      inputSchema: { type: "object", properties: { pub_id: { type: "string", description: "Publication ID (pub_xxx). Overrides the default BEEHIIV_PUB_ID env var." } } },
     },
 
     // ── SUBSCRIBERS ──────────────────────────────────────────────────────────
@@ -49,6 +67,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           status: { type: "string", enum: ["active", "inactive", "all"] },
           limit: { type: "number" },
           page: { type: "number" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
         },
       },
     },
@@ -509,8 +528,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     switch (name) {
 
+      case "publication_list": {
+        const data = await beehiivRoot("/publications");
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      }
+
       case "publication_get_stats": {
-        const data = await beehiiv("?expand[]=stats");
+        const data = await beehiiv("?expand[]=stats", {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
@@ -520,13 +544,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           limit: String(args?.limit || 50),
           page: String(args?.page || 1),
         });
-        const data = await beehiiv(`/subscriptions?${qs}`);
+        const data = await beehiiv(`/subscriptions?${qs}`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "subscriber_get": {
         const qs = new URLSearchParams({ email: args.email });
-        const data = await beehiiv(`/subscriptions?${qs}`);
+        const data = await beehiiv(`/subscriptions?${qs}`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
@@ -534,7 +558,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const expand = args?.expand || ["stats", "custom_fields"];
         const qs = new URLSearchParams();
         expand.forEach((e) => qs.append("expand[]", e));
-        const data = await beehiiv(`/subscriptions/${args.subscription_id}?${qs}`);
+        const data = await beehiiv(`/subscriptions/${args.subscription_id}?${qs}`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
@@ -549,7 +573,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (args?.order_by) qs.set("order_by", args.order_by);
         if (args?.direction) qs.set("direction", args.direction);
         if (args?.expand?.length) args.expand.forEach((e) => qs.append("expand[]", e));
-        const data = await beehiiv(`/subscriptions?${qs}`);
+        const data = await beehiiv(`/subscriptions?${qs}`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
@@ -568,7 +592,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (args?.referral_code) body.referral_code = args.referral_code;
         if (args?.automation_ids?.length) body.automation_ids = args.automation_ids;
         if (args?.custom_fields?.length) body.custom_fields = args.custom_fields;
-        const data = await beehiiv("/subscriptions", { method: "POST", body: JSON.stringify(body) });
+        const data = await beehiiv("/subscriptions", { method: "POST", body: JSON.stringify(body) }, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
@@ -577,12 +601,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (args?.unsubscribe !== undefined) body.unsubscribe = args.unsubscribe;
         if (args?.tier) body.tier = args.tier;
         if (args?.custom_fields?.length) body.custom_fields = args.custom_fields;
-        const data = await beehiiv(`/subscriptions/${args.subscription_id}`, { method: "PUT", body: JSON.stringify(body) });
+        const data = await beehiiv(`/subscriptions/${args.subscription_id}`, { method: "PUT", body: JSON.stringify(body) }, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "subscriber_delete": {
-        const data = await beehiiv(`/subscriptions/${args.subscription_id}`, { method: "DELETE" });
+        const data = await beehiiv(`/subscriptions/${args.subscription_id}`, { method: "DELETE" }, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
@@ -591,13 +615,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         for (const email of args.emails) {
           try {
             const qs = new URLSearchParams({ email });
-            const lookup = await beehiiv(`/subscriptions?${qs}`);
+            const lookup = await beehiiv(`/subscriptions?${qs}`, {}, args?.pub_id);
             if (!lookup.data?.length) { results.push({ email, status: "not_found" }); continue; }
             const subId = lookup.data[0].id;
             const tagResult = await beehiiv(`/subscriptions/${subId}/tags`, {
               method: "POST",
               body: JSON.stringify({ tags: [args.tag] }),
-            });
+            }, args?.pub_id);
             results.push({ email, status: "tagged", subscription_id: subId, result: tagResult });
           } catch (err) {
             results.push({ email, status: "error", error: err.message });
@@ -610,12 +634,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "subscriber_bulk_add": {
-        const data = await beehiiv("/bulk_subscriptions", { method: "POST", body: JSON.stringify({ subscriptions: args.subscriptions }) });
+        const data = await beehiiv("/bulk_subscriptions", { method: "POST", body: JSON.stringify({ subscriptions: args.subscriptions }) }, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "subscriber_bulk_update": {
-        const data = await beehiiv("/subscriptions/bulk_actions", { method: "PUT", body: JSON.stringify({ subscriptions: args.subscriptions }) });
+        const data = await beehiiv("/subscriptions/bulk_actions", { method: "PUT", body: JSON.stringify({ subscriptions: args.subscriptions }) }, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
@@ -626,12 +650,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           page: String(args?.page || 1),
         });
         qs.append("expand[]", "stats");
-        const data = await beehiiv(`/posts?${qs}`);
+        const data = await beehiiv(`/posts?${qs}`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "post_get": {
-        const data = await beehiiv(`/posts/${args.post_id}?expand[]=stats`);
+        const data = await beehiiv(`/posts/${args.post_id}?expand[]=stats`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
@@ -650,7 +674,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (args?.meta_default_description) body.meta_default_description = args.meta_default_description;
         if (args?.body_content) body.body_content = args.body_content;
         if (args?.blocks?.length) body.blocks = args.blocks;
-        const data = await beehiiv("/posts", { method: "POST", body: JSON.stringify(body) });
+        const data = await beehiiv("/posts", { method: "POST", body: JSON.stringify(body) }, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
@@ -662,53 +686,53 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (args?.scheduled_at) body.scheduled_at = args.scheduled_at;
         if (args?.meta_default_title) body.meta_default_title = args.meta_default_title;
         if (args?.meta_default_description) body.meta_default_description = args.meta_default_description;
-        const data = await beehiiv(`/posts/${args.post_id}`, { method: "PATCH", body: JSON.stringify(body) });
+        const data = await beehiiv(`/posts/${args.post_id}`, { method: "PATCH", body: JSON.stringify(body) }, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "post_delete": {
-        const data = await beehiiv(`/posts/${args.post_id}`, { method: "DELETE" });
+        const data = await beehiiv(`/posts/${args.post_id}`, { method: "DELETE" }, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "segment_list": {
-        const data = await beehiiv("/segments");
+        const data = await beehiiv("/segments", {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "segment_get": {
-        const data = await beehiiv(`/segments/${args.segment_id}`);
+        const data = await beehiiv(`/segments/${args.segment_id}`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "automation_list": {
         const qs = new URLSearchParams();
         if (args?.status && args.status !== "all") qs.set("status", args.status);
-        const data = await beehiiv(`/automations?${qs}`);
+        const data = await beehiiv(`/automations?${qs}`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "automation_get": {
-        const data = await beehiiv(`/automations/${args.automation_id}`);
+        const data = await beehiiv(`/automations/${args.automation_id}`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "webhook_list": {
         const qs = new URLSearchParams();
         if (args?.limit) qs.set("limit", String(args.limit));
-        const data = await beehiiv(`/webhooks?${qs}`);
+        const data = await beehiiv(`/webhooks?${qs}`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "webhook_get": {
-        const data = await beehiiv(`/webhooks/${args.endpoint_id}`);
+        const data = await beehiiv(`/webhooks/${args.endpoint_id}`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "webhook_create": {
         const body = { url: args.url, event_types: args.event_types };
         if (args?.description) body.description = args.description;
-        const data = await beehiiv("/webhooks", { method: "POST", body: JSON.stringify(body) });
+        const data = await beehiiv("/webhooks", { method: "POST", body: JSON.stringify(body) }, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
@@ -716,22 +740,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const body = {};
         if (args?.event_types?.length) body.event_types = args.event_types;
         if (args?.description) body.description = args.description;
-        const data = await beehiiv(`/webhooks/${args.endpoint_id}`, { method: "PATCH", body: JSON.stringify(body) });
+        const data = await beehiiv(`/webhooks/${args.endpoint_id}`, { method: "PATCH", body: JSON.stringify(body) }, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "webhook_delete": {
-        const data = await beehiiv(`/webhooks/${args.endpoint_id}`, { method: "DELETE" });
+        const data = await beehiiv(`/webhooks/${args.endpoint_id}`, { method: "DELETE" }, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "settings_list_custom_fields": {
-        const data = await beehiiv("/custom_fields");
+        const data = await beehiiv("/custom_fields", {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "settings_list_tiers": {
-        const data = await beehiiv("/tiers");
+        const data = await beehiiv("/tiers", {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
@@ -740,7 +764,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           limit: String(args?.limit || 10),
           page: String(args?.page || 1),
         });
-        const data = await beehiiv(`/advertisement_opportunities?${qs}`);
+        const data = await beehiiv(`/advertisement_opportunities?${qs}`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
