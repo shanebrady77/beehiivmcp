@@ -49,7 +49,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "publication_list",
       description: "List all Beehiiv publications accessible with this API key.",
-      inputSchema: { type: "object", properties: {} },
+      inputSchema: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "Results per page (1-100, default 10)" },
+          page: { type: "number", description: "Page number (default 1)" },
+        },
+      },
     },
     {
       name: "publication_get_stats",
@@ -417,7 +423,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "segment_list",
       description: "List all subscriber segments for the publication.",
-      inputSchema: { type: "object", properties: { pub_id: { type: "string", description: "Publication ID override (pub_xxx)" } } },
+      inputSchema: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "Results per page (1-100, default 10)" },
+          page: { type: "number", description: "Page number (default 1)" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
+        },
+      },
     },
     {
       name: "segment_get",
@@ -440,6 +453,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         type: "object",
         properties: {
           status: { type: "string", enum: ["active", "inactive", "all"] },
+          limit: { type: "number", description: "Results per page (1-100, default 10)" },
+          page: { type: "number", description: "Page number (default 1)" },
           pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
         },
       },
@@ -540,12 +555,27 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "settings_list_custom_fields",
       description: "List all custom field definitions. Check this before using custom fields in subscriber_add or subscriber_update.",
-      inputSchema: { type: "object", properties: { pub_id: { type: "string", description: "Publication ID override (pub_xxx)" } } },
+      inputSchema: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "Results per page (1-100, default 10)" },
+          page: { type: "number", description: "Page number (default 1)" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
+        },
+      },
     },
     {
       name: "settings_list_tiers",
       description: "List all subscription tiers (free and premium) configured for the publication.",
-      inputSchema: { type: "object", properties: { pub_id: { type: "string", description: "Publication ID override (pub_xxx)" } } },
+      inputSchema: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "Results per page (1-100, default 10)" },
+          page: { type: "number", description: "Page number (default 1)" },
+          direction: { type: "string", enum: ["asc", "desc"], description: "Sort direction (default asc)" },
+          pub_id: { type: "string", description: "Publication ID override (pub_xxx)" },
+        },
+      },
     },
     {
       name: "settings_list_ad_opportunities",
@@ -570,7 +600,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     switch (name) {
 
       case "publication_list": {
-        const data = await beehiivRoot("/publications");
+        const qs = new URLSearchParams();
+        if (args?.limit) qs.set("limit", String(args.limit));
+        if (args?.page) qs.set("page", String(args.page));
+        const data = await beehiivRoot(`/publications?${qs}`);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
@@ -737,7 +770,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "segment_list": {
-        const data = await beehiiv("/segments", {}, args?.pub_id);
+        const qs = new URLSearchParams();
+        if (args?.limit) qs.set("limit", String(args.limit));
+        if (args?.page) qs.set("page", String(args.page));
+        const data = await beehiiv(`/segments?${qs}`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
@@ -749,6 +785,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "automation_list": {
         const qs = new URLSearchParams();
         if (args?.status && args.status !== "all") qs.set("status", args.status);
+        if (args?.limit) qs.set("limit", String(args.limit));
+        if (args?.page) qs.set("page", String(args.page));
         const data = await beehiiv(`/automations?${qs}`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
@@ -791,12 +829,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "settings_list_custom_fields": {
-        const data = await beehiiv("/custom_fields", {}, args?.pub_id);
+        const qs = new URLSearchParams();
+        if (args?.limit) qs.set("limit", String(args.limit));
+        if (args?.page) qs.set("page", String(args.page));
+        const data = await beehiiv(`/custom_fields?${qs}`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
       case "settings_list_tiers": {
-        const data = await beehiiv("/tiers", {}, args?.pub_id);
+        const qs = new URLSearchParams();
+        if (args?.limit) qs.set("limit", String(args.limit));
+        if (args?.page) qs.set("page", String(args.page));
+        if (args?.direction) qs.set("direction", args.direction);
+        const data = await beehiiv(`/tiers?${qs}`, {}, args?.pub_id);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       }
 
